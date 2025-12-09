@@ -1,6 +1,5 @@
 volumes:
   postgres_data:
-  redis_data:
   go_mods:
   go_tools:
   go_bin:
@@ -41,15 +40,12 @@ services:
     environment:
       GOBIN: /app/bin
       DATABASE_URL: "postgres://postgres:postgres@postgres:5432/genshinquiz?sslmode=disable"
-      REDIS_HOST: redis
     volumes:
       - ./repos/backend:/app
       - go_mods:/go/pkg/mod
       - go_bin:/app/bin
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     entrypoint:
       - /bin/sh
@@ -140,22 +136,6 @@ services:
       POSTGRES_DB: exampledb
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    profiles: ["genshinquiz", "moelink"]
-
-  redis:
-    container_name: redis
-    image: redis:7.2-alpine
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
