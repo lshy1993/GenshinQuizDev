@@ -8,6 +8,7 @@ volumes:
   vite_deps:
   node_modules_cache:
   genshin_node_modules_cache:
+  gateway_data:
   moelink_node_modules_cache:
 
 services:
@@ -31,7 +32,11 @@ services:
         condition: service_healthy
     command: /bin/sh -c "bun install && bun run dev:docker"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:3000"]
+      test:
+        - "CMD"
+        - "bun"
+        - "-e"
+        - "fetch('http://localhost:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
       interval: 30s
       retries: 3
       timeout: 10s
@@ -42,7 +47,7 @@ services:
   # Go Backend API
   genshinquiz-backend:
     container_name: genshinquiz-backend
-    image: golang:1.26
+    image: golang:1.27
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -50,6 +55,8 @@ services:
     environment:
       GOBIN: /app/bin
       DATABASE_URL: "postgres://postgres:postgres@postgres:5432/genshinquiz?sslmode=disable"
+      # 统一用户系统：与 node-api 使用同一 JWT_SECRET（HS256）
+      JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
     volumes:
       - ./repos/backend:/app
       - go_mods:/go/pkg/mod
@@ -107,6 +114,13 @@ services:
     working_dir: /app
     ports:
       - "8020:8020"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      # 统一用户系统：与 genshinquiz-backend 使用同一 JWT_SECRET（HS256）
+      JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
+      GO_BACKEND_URL: http://genshinquiz-backend:8080
     volumes:
       - ./repos/node-api:/app
       - node_modules_cache:/app/node_modules
@@ -115,7 +129,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8020/health"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8020/health"]
       interval: 30s
       retries: 3
       timeout: 10s
@@ -129,6 +143,10 @@ services:
     working_dir: /app
     ports:
       - "8181:8181"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
     volumes:
       - ./repos/node-api:/app
       - node_modules_cache:/app/node_modules
@@ -141,6 +159,29 @@ services:
       start_period: 5s
     command: /bin/sh -c "npm install && node service/majserver/server.js"
     profiles: ["moelink"]
+
+  # Gateway: reverse proxy + per-API traffic stats + health monitoring/alerts
+  moelink-gateway:
+    container_name: moelink-gateway
+    build:
+      context: ./repos/moelink-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      GATEWAY_ADMIN_TOKEN: ${GATEWAY_ADMIN_TOKEN:-}
+      STATS_FILE: /data/stats.json
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    volumes:
+      - gateway_data:/data
+      - ./repos:/repos:ro # release guardian 读取各仓库 HEAD
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/_gateway/health"]
+      interval: 30s
+      retries: 3
+      timeout: 10s
+    profiles: ["moelink", "genshinquiz"]
 
   postgres:
     container_name: postgres
