@@ -6,6 +6,12 @@
 
 set -u
 
+# 统一走 SSH：把所有 https://github.com/ 地址（含子模块、已有仓库的 origin）透明改写成 git@github.com:，
+# 这样使用 SSH key 即可，不会再要求输入 GitHub 账号密码
+export GIT_TERMINAL_PROMPT=0
+export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+git() { command git -c "url.git@github.com:.insteadOf=https://github.com/" "$@"; }
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -67,6 +73,9 @@ update_repo() {
     fi
 
     if git -C "$dir" pull --ff-only origin "$branch"; then
+        if [ -f "$dir/.gitmodules" ]; then
+            git -C "$dir" submodule update --init --recursive || print_warning "$name: 子模块更新失败"
+        fi
         print_status "$name ($branch) 已更新到 $(git -C "$dir" rev-parse --short HEAD)"
     else
         print_error "$name: 无法快进合并（本地 $branch 可能已分叉）"
