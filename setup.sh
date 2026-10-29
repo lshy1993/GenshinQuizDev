@@ -129,6 +129,15 @@ main() {
     done
     cd ..
 
+    if [ ! -f .env ] && [ -f .env.example ]; then
+        cp .env.example .env
+        print_warning "已从 .env.example 生成 .env，请修改其中的 JWT_SECRET、POSTGRES_PASSWORD 等后再启动（NAS 上 5432 被占用请改 POSTGRES_HOST_PORT）"
+        if [ "$do_up" -eq 1 ]; then
+            print_error "请先编辑 .env，再重新执行 ./setup.sh --up"
+            exit 1
+        fi
+    fi
+
     if [ ${#FAILED[@]} -gt 0 ]; then
         print_warning "以下仓库未成功更新: ${FAILED[*]}"
     else

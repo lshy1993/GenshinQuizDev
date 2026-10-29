@@ -5,6 +5,7 @@
 #    JWT_SECRET=<随机长字符串>      # MoeLink 统一登录签名密钥
 #    POSTGRES_PASSWORD=<强密码>     # 数据库密码
 #    GATEWAY_ADMIN_TOKEN=<随机串>   # gateway 管理接口
+#    POSTGRES_HOST_PORT=5433        # 宿主机映射端口（默认 5432，NAS 被占用时修改）
 #    GITHUB_TOKEN=<可选>            # gateway release guardian
 # 3. 需要把 repos/ 整个目录（含各子项目源码）一并上传到 NAS 项目目录。
 volumes:
@@ -211,9 +212,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
+      # 宿主机端口默认 5432；NAS 上被占用时在 .env 中设置 POSTGRES_HOST_PORT=5433；
       # 仅绑定本机回环：容器间通信用服务名 postgres:5432 不受影响，
       # 避免 NAS 上弱密码数据库暴露到局域网（需要外部访问时再改为 0.0.0.0）
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     environment:
       POSTGRES_USER: postgres
       # ⚠️ NAS 部署务必在 .env 中设置强密码
