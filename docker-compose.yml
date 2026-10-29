@@ -1,5 +1,12 @@
-version: '3.9'
-
+# NAS（Synology Container Manager）部署：
+# 1. 所有服务均不再使用 profile，「项目 → 创建」选本目录后一次即可启动全部服务；
+#    命令行等价：docker compose up -d --build
+# 2. 敏感变量请在本目录创建 .env（Container Manager 创建项目时会自动读取同目录 .env）：
+#    JWT_SECRET=<随机长字符串>      # MoeLink 统一登录签名密钥
+#    POSTGRES_PASSWORD=<强密码>     # 数据库密码
+#    GATEWAY_ADMIN_TOKEN=<随机串>   # gateway 管理接口
+#    GITHUB_TOKEN=<可选>            # gateway release guardian
+# 3. 需要把 repos/ 整个目录（含各子项目源码）一并上传到 NAS 项目目录。
 volumes:
   postgres_data:
   go_mods:
@@ -7,6 +14,7 @@ volumes:
   go_bin:
   vite_deps:
   node_modules_cache:
+  maj_node_modules_cache:
   genshin_node_modules_cache:
   gateway_data:
   moelink_node_modules_cache:
@@ -42,7 +50,6 @@ services:
       timeout: 10s
       start_period: 30s
     restart: unless-stopped
-    profiles: ["genshinquiz"]
 
   # Go Backend API
   genshinquiz-backend:
@@ -54,9 +61,10 @@ services:
     working_dir: /app
     environment:
       GOBIN: /app/bin
-      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/genshinquiz?sslmode=disable"
+      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/genshinquiz?sslmode=disable"
       # 统一用户系统：与 node-api 使用同一 JWT_SECRET（HS256）
-      JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
+      # ⚠️ 生产/NAS 部署务必在 .env 中设置强随机值（与 node-api 一致）
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
     volumes:
       - ./repos/backend:/app
       - go_mods:/go/pkg/mod
@@ -86,7 +94,6 @@ services:
       retries: 3
       timeout: 10s
       start_period: 40s
-    profiles: ["genshinquiz"]
 
   # Moelink Frontend
   moe-link:
@@ -100,12 +107,19 @@ services:
       - moelink_node_modules_cache:/app/node_modules
       - ./repos/MoeLink/openapi:/app/openapi # 挂载 openapi 文件夹
     environment:
-      VITE_API_URL: http://host.docker.internal:8020
+      # 直连同网络的 node-api 服务（不要用 host.docker.internal：Linux/NAS 上默认不可解析）
+      VITE_API_URL: http://node-api:8020
       CHOKIDAR_USEPOLLING: true
     depends_on:
       - node-api
+    restart: unless-stopped
     command: /bin/sh -c "bun install && bun run dev"
-    profiles: ["moelink"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5173"]
+      interval: 30s
+      retries: 3
+      timeout: 10s
+      start_period: 60s
 
   # Node.js API Server
   node-api:
@@ -115,12 +129,18 @@ services:
     ports:
       - "8020:8020"
     environment:
+      # 端口必须显式声明：仓库内 .env 被 gitignore，NAS 全新克隆后不存在，
+      # 缺省会回退到 3000 导致端口映射与健康检查全部失效
+      PORT: "8020"
       DATABASE_HOST: postgres
       DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       # 统一用户系统：与 genshinquiz-backend 使用同一 JWT_SECRET（HS256）
-      JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
+      # ⚠️ 生产/NAS 部署务必在 .env 中设置强随机值
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
       GO_BACKEND_URL: http://genshinquiz-backend:8080
+      # 小屋编辑权限：仅这些 user_id（逗号分隔）可写，本地默认 6
+      MIAO_OWNER_USER_IDS: "${MIAO_OWNER_USER_IDS:-6}"
     volumes:
       - ./repos/node-api:/app
       - node_modules_cache:/app/node_modules
@@ -133,9 +153,10 @@ services:
       interval: 30s
       retries: 3
       timeout: 10s
-      start_period: 5s
-    command: /bin/sh -c "npm install && node app.js"
-    profiles: ["moelink"]
+      # NAS 冷启动 npm install 可能较慢，给足启动窗口
+      start_period: 90s
+    # 启动前自动执行 moelink 库的 knex 迁移（NAS 首次部署时库是空的）
+    command: /bin/sh -c "npm install && npx knex migrate:latest && node app.js"
 
   maj-server:
     container_name: maj-server
@@ -146,10 +167,11 @@ services:
     environment:
       DATABASE_HOST: postgres
       DATABASE_USER: postgres
-      DATABASE_PASSWORD: postgres
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - ./repos/node-api:/app
-      - node_modules_cache:/app/node_modules
+      # 独立的 node_modules 卷：与 node-api 并发 npm install 时互不干扰
+      - maj_node_modules_cache:/app/node_modules
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "ps -ef | grep '[n]ode service/majserver/server.js' >/dev/null 2>&1 || exit 1"]
@@ -158,7 +180,6 @@ services:
       timeout: 10s
       start_period: 5s
     command: /bin/sh -c "npm install && node service/majserver/server.js"
-    profiles: ["moelink"]
 
   # Gateway: reverse proxy + per-API traffic stats + health monitoring/alerts
   moelink-gateway:
@@ -181,7 +202,6 @@ services:
       interval: 30s
       retries: 3
       timeout: 10s
-    profiles: ["moelink", "genshinquiz"]
 
   postgres:
     container_name: postgres
@@ -191,14 +211,16 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
-      - "5432:5432"
+      # 仅绑定本机回环：容器间通信用服务名 postgres:5432 不受影响，
+      # 避免 NAS 上弱密码数据库暴露到局域网（需要外部访问时再改为 0.0.0.0）
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      # ⚠️ NAS 部署务必在 .env 中设置强密码
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: moelink
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
       interval: 30s
       timeout: 10s
       retries: 3
-    profiles: ["genshinquiz", "moelink"]

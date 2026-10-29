@@ -3,6 +3,8 @@
 
 -- 创建数据库（如果不存在）
 CREATE DATABASE genshinquiz;
+-- AlphaSoul 麻将数据（maj-server / maj 工具用）
+CREATE DATABASE majstatus;
 
 -- 创建用户（如果需要额外的用户）
 -- CREATE USER genshin_user WITH PASSWORD 'your_password';
