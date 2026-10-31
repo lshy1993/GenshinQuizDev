@@ -106,7 +106,6 @@ services:
     volumes:
       - ./repos/MoeLink:/app
       - moelink_node_modules_cache:/app/node_modules
-      - ./repos/MoeLink/openapi:/app/openapi # 挂载 openapi 文件夹
     environment:
       # 直连同网络的 node-api 服务（不要用 host.docker.internal：Linux/NAS 上默认不可解析）
       VITE_API_URL: http://node-api:8020
