@@ -113,7 +113,11 @@ services:
     depends_on:
       - node-api
     restart: unless-stopped
-    command: /bin/sh -c "bun install && bun run dev"
+    # 直接执行 vite 的真实入口，绕过 node_modules/.bin/vite 符号链接。
+    # Synology/BTRFS 上 Bun 不会先解析该符号链接，导致 vite 内部的
+    # import('../dist/node/cli.js') 按 .bin 目录解析而报 Cannot find module
+    # （oven-sh/bun#28331、#11073）；ext4/APFS 上不复现。
+    command: /bin/sh -c "bun install && bun ./node_modules/vite/bin/vite.js"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:5173"]
       interval: 30s
