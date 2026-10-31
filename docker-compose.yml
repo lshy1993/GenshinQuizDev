@@ -187,6 +187,12 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # 复用 MoeLink 统一用户系统的 JWT（必须与 Go 后端 / node-api 一致）
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      # 管理员 user_id 白名单；配置后即使 node-api 挂了也能登录后台
+      GATEWAY_ADMIN_USER_IDS: ${GATEWAY_ADMIN_USER_IDS:-6}
+      NODE_API_URL: http://node-api:8020
+      # 机器 token：Prometheus / 脚本访问 /metrics 用，不是网页登录密码
       GATEWAY_ADMIN_TOKEN: ${GATEWAY_ADMIN_TOKEN:-}
       STATS_FILE: /data/stats.json
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
