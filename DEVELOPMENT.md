@@ -38,10 +38,12 @@ The override uses the same published frontend ports (3000 and 5173), so do not r
 | Service | Host port | Description |
 |---|---:|---|
 | `genshinquiz-frontend` | 3000 | GenshinQuiz frontend |
-| `genshinquiz-backend` | 8080 | Go API |
+| `genshinquiz-backend` | 8080 | Go quiz API (`/auth/*` moved out) |
+| `auth-service` | 8081 | Go authentication service |
 | `moe-link` | 5173 | MoeLink frontend |
 | `moelink-gateway` | 8000 | API gateway and dashboard |
 | `node-api` | 8020 | MoeLink API |
+| `stock-worker` | — | Simulated stock-market engine |
 | `maj-server` | 8181 | Mahjong service |
 | `postgres` | 5432 by default | PostgreSQL, host binding is loopback-only |
 

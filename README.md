@@ -44,7 +44,7 @@ Alternatively, `./setup.sh --up` updates repositories and starts Compose after t
 
 ### Google and GitHub sign-in
 
-The Go API handles OAuth callbacks for both applications. Configure Google and GitHub OAuth credentials in the root `.env`:
+`auth-service` (Go) handles OAuth for both applications. Configure Google and GitHub OAuth credentials in the root `.env`:
 
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
 - `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET`
@@ -60,15 +60,21 @@ https://api.moelink.site/auth/github/callback
 
 `OAUTH_ALLOWED_REDIRECT_ORIGINS` is an exact allowlist for the final frontend redirect. The OAuth flow only accepts a verified provider email; it links that email to an existing unified account or creates a new one. Provider access tokens are not stored. Use separate provider applications and credentials for local testing; set `OAUTH_CALLBACK_BASE_URL=http://localhost:8000` and leave `OAUTH_COOKIE_DOMAIN` empty for local Compose development. Restart/recreate the Go API after changing `.env`.
 
+### Public API entry
+
+Point `api.moelink.site` at the gateway (host port `8000`), not directly at node-api (`8020`) or the Go services (`8080` / `8081`). The gateway forwards `/auth/*` to `auth-service`, `/go-api/*` to the quiz API, and its `/` catch-all forwards every other path to node-api. Existing URLs such as `https://api.moelink.site/user/session` therefore keep working, while OAuth becomes available. In Cloudflare Tunnel, change the `api.moelink.site` service target from `http://localhost:8020` to `http://localhost:8000`; no path rules are required.
+
 ### Services and ports
 
 | Service | Host port | Notes |
 |---|---:|---|
 | GenshinQuiz frontend | 3000 | Static site |
-| GenshinQuiz API | 8080 | Go |
+| GenshinQuiz API | 8080 | Go, quiz routes only |
+| Auth service | 8081 | Go, `/auth/*`; bound to loopback by default |
 | MoeLink frontend | 5173 | Static site |
 | MoeLink gateway/dashboard | 8000 | Dashboard: `/_gateway/ui` |
 | MoeLink Node API | 8020 | |
+| Stock worker | — | No HTTP port; runs the simulated stock-market engine |
 | maj-server | 8181 | |
 | PostgreSQL | 5432 by default | Bound to loopback; configure with `POSTGRES_HOST_PORT` |
 
