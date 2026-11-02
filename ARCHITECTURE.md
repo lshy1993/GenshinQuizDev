@@ -1,106 +1,52 @@
-# 原神问答投票系统架构设计
+# System Architecture / 系统架构
 
-## 系统概述
-这是一个基于 Node.js + PostgreSQL 的原神主题问答和投票系统，包含用户管理、问答系统、投票系统和管理后台。
+This repository is the deployment workspace for several independently versioned applications. The root Compose project connects their containers on one private Docker network.
 
-## 数据库设计
+本仓库是多个独立版本管理应用的部署工作区。根目录的 Compose 项目将各容器连接到同一个内部 Docker 网络。
 
-### 用户系统 (users)
-- 用户基本信息：姓名、邮箱、密码
-- 权限系统：user/admin 角色
-- 状态管理：激活状态、最后登录时间
+## Services
 
-### 问答系统
-- **quizzes**: 题目表，支持多种题型
-- **quiz_categories**: 题目分类管理
-- **quiz_attempts**: 用户答题记录
+| Compose service | Application | Responsibility |
+|---|---|---|
+| `genshinquiz-frontend` | React + Vite, served by Nginx | GenshinQuiz user interface |
+| `genshinquiz-backend` | Go + Chi | GenshinQuiz API and authoritative GenshinQuiz user data |
+| `moe-link` | Vue + Vite, served by Nginx | MoeLink user interface |
+| `node-api` | Node.js + Express + PostgreSQL | MoeLink API, forum, shop, wallet, and unified-user integration |
+| `maj-server` | Node.js | Mahjong service |
+| `moelink-gateway` | Node.js | API reverse proxy, health monitoring, statistics, dashboard, and release status |
+| `postgres` | PostgreSQL | Persistent storage for the applications |
 
-### 投票系统
-- **votes**: 投票活动表
-- **vote_options**: 投票选项表
-- **user_votes**: 用户投票记录表
+The default Compose file builds both web frontends as static assets served by Nginx. `docker-compose.local.yml` is an override for local development that switches these two services to Vite development servers with source mounts and hot reload.
 
-## 功能特性
+## Network and access
 
-### 用户功能
-- ✅ 用户注册/登录/个人资料管理
-- ✅ 参与问答：单选、多选、判断、填空题
-- ✅ 参与投票：单选/多选投票
-- ✅ 查看个人答题和投票历史
-- ✅ 实时投票结果统计
+Containers connect to each other using Compose service names, for example:
 
-### 管理员功能
-- ✅ 题库管理：创建、编辑、删除题目
-- ✅ 分类管理：管理题目分类
-- ✅ 投票管理：创建投票活动，设置时间限制
-- ✅ 用户管理：用户权限控制
-- ✅ 数据统计：答题准确率、投票参与度等
+- `node-api:8020`
+- `genshinquiz-backend:8080`
+- `postgres:5432`
 
-### 系统特性
-- ✅ 软删除：数据安全，支持恢复
-- ✅ 时间控制：投票开始/结束时间管理
-- ✅ 防重复：用户每个投票只能参与一次
-- ✅ 匿名投票：支持匿名和实名投票模式
-- ✅ 多环境：本地MySQL + Docker PostgreSQL
+The public host ports are declared in `docker-compose.yml`. PostgreSQL is bound to the host loopback address only, with a default host port of 5432. Set `POSTGRES_HOST_PORT` in the root `.env` to use another host port; the internal container port remains 5432.
 
-## API 设计建议
+The gateway listens on port 8000. It exposes `/node-api` and `/go-api` proxy prefixes, monitors configured services, and serves its dashboard at `/_gateway/ui`.
 
-### 用户相关
-```
-POST /api/auth/login
-POST /api/auth/register
-GET /api/users/profile
-PUT /api/users/profile
-GET /api/users/history (答题和投票历史)
-```
+## Databases and migrations
 
-### 问答相关
-```
-GET /api/quizzes (支持筛选：分类、难度、类型)
-GET /api/quizzes/random
-GET /api/quizzes/:id
-POST /api/quizzes/:id/attempt (提交答案)
-GET /api/categories
-```
+PostgreSQL initializes the `moelink` database through `POSTGRES_DB`. The root `config/init.sql` additionally creates `genshinquiz` and `majstatus` when PostgreSQL initializes a new data directory.
 
-### 投票相关
-```
-GET /api/votes (活跃投票列表)
-GET /api/votes/:id (投票详情+选项)
-POST /api/votes/:id/submit (提交投票)
-GET /api/votes/:id/results (投票结果)
-```
+- The Go backend applies its Goose migrations during container startup.
+- The Node API applies Knex migrations to the `moelink` database before starting.
+- The Node API also connects to `genshinquiz` for unified-user reads and to `majstatus` for Mahjong data.
+- `config/init.sql` is run only when the PostgreSQL data directory is first initialized. Existing volumes are not changed by edits to that file.
 
-### 管理员相关
-```
-POST /api/admin/quizzes (创建题目)
-PUT /api/admin/quizzes/:id
-DELETE /api/admin/quizzes/:id
-POST /api/admin/votes (创建投票)
-GET /api/admin/stats (统计数据)
-```
+Persistent database files are stored in the `postgres_data` named volume. Removing the Compose project does not remove named volumes unless `-v` is specified.
 
-## 下一步开发建议
+## Unified authentication
 
-1. **认证系统**：实现 JWT 认证和权限中间件
-2. **API 路由**：根据 OpenAPI 规范实现完整 API
-3. **前端界面**：设计用户友好的问答和投票界面
-4. **数据验证**：添加输入验证和错误处理
-5. **性能优化**：数据库索引、查询优化
-6. **安全加固**：密码加密、CSRF 保护等
+The Go backend and Node API use the same HS256 `JWT_SECRET` for unified authentication. Set it in the root `.env` before deployment and keep it identical for both services. The Node API reads the GenshinQuiz user database; the Go backend remains the authority for those accounts.
 
-## 运行方式
-```bash
-# 启动 Docker 环境
-docker-compose up -d
+## Configuration and deployment
 
-# 运行数据库迁移
-npm run db:migrate
+The root `.env.example` documents the variables used by Compose. Copy it to `.env` and replace placeholder secrets before starting a deployment. On first run, `setup.sh` can create the copy automatically, but it does not overwrite an existing `.env`.
 
-# 运行种子数据
-npm run db:seed
-```
-
-前端将在 http://localhost:3000 启动
-后端 API 在 http://localhost:3082 启动
-Swagger Editor 在 http://localhost:3020 启动
+See [README.md](./README.md) for deployment steps and [DEVELOPMENT.md](./DEVELOPMENT.md) for local Compose workflows.

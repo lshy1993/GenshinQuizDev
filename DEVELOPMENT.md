@@ -1,189 +1,117 @@
-# 开发指南 - Development Guide
+# Development Guide / 开发指南
 
-## 🚀 快速开始
+This repository is a Compose workspace for several separately versioned applications. Start commands from the repository root unless a section says otherwise.
 
-### 1. 启动完整应用
+本仓库通过 Compose 编排多个独立版本管理的应用。除非特别说明，命令都从仓库根目录执行。
+
+## Docker frontend modes
+
+### Static mode (deployment default)
+
+The default `docker-compose.yml` builds the GenshinQuiz and MoeLink frontends and serves their generated files with Nginx:
+
 ```bash
-# 从项目根目录运行
-./scripts/start.sh
+docker compose up -d --build
 ```
 
-这将启动：
-- ✅ PostgreSQL 数据库 (容器内 5432，宿主机默认 5432)
-- ✅ Go 后端 API (端口 8080)
-- ✅ React 前端 (端口 3000)  
-- ✅ Swagger 编辑器 (端口 3020)
+### Vite hot reload (local development)
 
-### 2. 验证 API
+Combine the default Compose file with the local override:
+
 ```bash
-# 测试 API 是否正常工作
-./scripts/test_api.sh
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
-### 3. 访问应用
-- **前端**: http://localhost:3000
-- **API**: http://localhost:8080/api/v1
-- **健康检查**: http://localhost:8080/health
-- **Swagger**: http://localhost:3020
+The override switches only the GenshinQuiz and MoeLink frontends to Vite development servers and mounts their source directories. The other services retain the default Compose configuration. `vue-home` is not currently a Compose service.
 
-## 🛠️ 后端开发
+To return to static mode after using the override, run:
 
-### 本地开发环境
 ```bash
-cd backend
-
-# 安装依赖和工具
-./scripts/setup.sh
-
-# 启动数据库
-docker-compose up postgres -d
-
-# 运行迁移
-./scripts/migrate.sh up
-
-# 生成代码
-./scripts/generate_models.sh
-./scripts/generate_api.sh
-
-# 启动开发服务器
-go run main.go
+docker compose -f docker-compose.yml -f docker-compose.local.yml down
+docker compose up -d --build
 ```
 
-### 数据库操作
+The override uses the same published frontend ports (3000 and 5173), so do not run both modes simultaneously for the same Compose project.
+
+## Services
+
+| Service | Host port | Description |
+|---|---:|---|
+| `genshinquiz-frontend` | 3000 | GenshinQuiz frontend |
+| `genshinquiz-backend` | 8080 | Go API |
+| `moe-link` | 5173 | MoeLink frontend |
+| `moelink-gateway` | 8000 | API gateway and dashboard |
+| `node-api` | 8020 | MoeLink API |
+| `maj-server` | 8181 | Mahjong service |
+| `postgres` | 5432 by default | PostgreSQL, host binding is loopback-only |
+
+Containers connect to PostgreSQL at `postgres:5432`. To avoid a host-side port conflict, set `POSTGRES_HOST_PORT` in the root `.env` (for example `5433`); this does not change the port used between containers.
+
+## Initial deployment
+
+1. Copy `.env.example` to `.env` if it does not exist. `./setup.sh` does this automatically.
+2. Set private values for `JWT_SECRET`, `POSTGRES_PASSWORD`, and `GATEWAY_ADMIN_TOKEN`. `JWT_SECRET` must match between the Go and Node APIs.
+3. If this is a fresh deployment, run `./setup.sh` to fetch the application repositories and initialize their submodules.
+4. Start all services:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+On Synology Container Manager, create a Project from the root directory and use the root `docker-compose.yml`. The directory must include `repos/`, `config/`, and the configured `.env`.
+
+The Compose file runs database migrations as part of service startup: Goose migrations for the Go API and Knex migrations for the MoeLink database. PostgreSQL's `config/init.sql` runs only when its data directory is first initialized.
+
+## Working on individual applications
+
+### GenshinQuiz frontend
+
 ```bash
-# 查看迁移状态
-./scripts/migrate.sh status
-
-# 创建新迁移
-./scripts/migrate.sh create add_new_feature
-
-# 应用迁移
-./scripts/migrate.sh up
-
-# 回滚迁移
-./scripts/migrate.sh down
-```
-
-### 代码生成
-```bash
-# 从数据库生成 Go-Jet 模型
-./scripts/generate_models.sh
-
-# 从 OpenAPI 规范生成 API 代码
-./scripts/generate_api.sh
-```
-
-## 🎨 前端开发
-
-### 本地开发
-```bash
-cd frontend
-
-# 安装依赖
+cd repos/frontend
 bun install
-
-# 生成 API 客户端
-bun run generate
-
-# 启动开发服务器
 bun run dev
 ```
 
-### API 客户端生成
-前端使用 Orval 从 OpenAPI 规范自动生成 TypeScript API 客户端：
+The Vite development server uses port 3000. Use the root `docker-compose.local.yml` override when you want the frontend container to proxy to the other services on the Compose network.
+
+### MoeLink frontend
+
 ```bash
-# 生成 API 客户端代码
-bunx orval --config orval.config.json
+cd repos/MoeLink
+bun install
+bun run dev
 ```
 
-## 📊 常用命令
+The Vite development server uses port 5173. For an application build, run `bun run build-only`. `bun run build` also runs the TypeScript check.
 
-### Docker 操作
+### Go API
+
+The Go API source is in `repos/backend`. For the containerized workflow, use the root Compose service. Its container runs Goose migrations and starts the server. For local Go development, consult `repos/backend/README.md` and the Taskfile in that repository.
+
+### MoeLink Node API
+
+The Node API source is in `repos/node-api`. For local development:
+
 ```bash
-# 启动所有服务
-docker-compose up -d
-
-# 查看服务状态
-docker-compose ps
-
-# 查看日志
-docker-compose logs -f backend
-docker-compose logs -f frontend
-
-# 停止服务
-docker-compose down
-
-# 重新构建
-docker-compose up --build
+cd repos/node-api
+npm install
+npx knex migrate:latest
+node app.js
 ```
 
-### API 测试
+Configure local database connection variables using that repository's `.env.example`. The root Compose workflow supplies its container-specific database settings.
+
+## Operations
+
 ```bash
-# 健康检查
-curl http://localhost:8080/health
-
-# 获取用户列表
-curl http://localhost:8080/api/v1/users
-
-# 创建用户
-curl -X POST http://localhost:8080/api/v1/users \
-  -H "Content-Type: application/json" \
-  -d '{"username":"test","email":"test@example.com"}'
-
-# 获取测验列表
-curl http://localhost:8080/api/v1/quizzes
+docker compose ps
+docker compose logs -f <service>
+docker compose restart <service>
+docker compose down
 ```
 
-## 🔧 开发工作流
+`docker compose down -v` removes named volumes, including PostgreSQL data. Do not use it unless you intend to delete persistent data.
 
-### 1. 添加新的 API 端点
-1. 更新 `backend/api/openapi.yaml`
-2. 运行 `./scripts/generate_api.sh` 生成 Go 代码
-3. 实现业务逻辑 (services, handlers)
-4. 在前端运行 `bun run generate` 更新客户端代码
+`./setup.sh` fetches the root and child repositories over SSH, checks out each remote `main` branch (falling back to `master` when needed), and fast-forward updates only. It skips dirty repositories rather than overwriting local changes. Use `./setup.sh --up` to rebuild/start after updating, or `./setup.sh --up --sudo` if Docker requires `sudo`.
 
-### 2. 数据库变更
-1. 创建迁移: `./scripts/migrate.sh create description`
-2. 编辑迁移文件: `backend/migrations/xxx_description.sql`
-3. 应用迁移: `./scripts/migrate.sh up`
-4. 重新生成模型: `./scripts/generate_models.sh`
-
-### 3. 调试
-- **Go 后端日志**: `docker-compose logs -f backend`
-- **前端日志**: `docker-compose logs -f frontend`
-- **数据库连接**: `docker-compose exec database psql -U postgres -d genshinquiz`
-
-## 📁 重要文件
-
-### 配置文件
-- `docker-compose.yml` - 服务编排
-- `backend/.env` - 后端环境变量
-- `backend/api/openapi.yaml` - API 规范
-- `frontend/orval.config.json` - API 客户端生成配置
-
-### 脚本文件
-- `scripts/start.sh` - 启动完整应用
-- `scripts/test_api.sh` - API 测试
-- `backend/scripts/setup.sh` - 后端环境设置
-- `backend/scripts/migrate.sh` - 数据库迁移
-- `backend/scripts/generate_*.sh` - 代码生成
-
-## 🐛 故障排除
-
-### 常见问题
-1. **端口冲突**: 确保 3000、8080、5432 端口未被占用
-2. **数据库连接失败**: 检查 PostgreSQL 是否启动
-3. **代码生成失败**: 确保安装了必要的工具
-4. **Docker 构建失败**: 尝试 `docker system prune` 清理缓存
-
-### 重置环境
-```bash
-# 停止所有服务
-docker-compose down -v
-
-# 清理 Docker 资源
-docker system prune -f
-
-# 重新启动
-./scripts/start.sh
-```
+See [README.md](./README.md) for deployment setup and the service/port overview.

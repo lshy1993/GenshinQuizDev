@@ -1,0 +1,52 @@
+# Local development override. Use:
+# docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+services:
+  genshinquiz-frontend:
+    image: genshinquiz-frontend-dev
+    build:
+      target: builder
+    working_dir: /app
+    volumes:
+      - ./repos/frontend:/app
+      - genshin_node_modules_cache:/app/node_modules
+      - vite_deps:/app/node_modules/.vite
+    environment:
+      VITE_API_URL: http://genshinquiz-backend:8080
+      CHOKIDAR_USEPOLLING: "true"
+    command: /bin/sh -c "bun install && bun run dev:docker"
+    healthcheck:
+      test:
+        - CMD
+        - bun
+        - -e
+        - "fetch('http://localhost:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      retries: 3
+      timeout: 10s
+      start_period: 30s
+
+  moe-link:
+    image: moelink-frontend-dev
+    build:
+      target: builder
+    working_dir: /app
+    volumes:
+      - ./repos/MoeLink:/app
+      - moelink_node_modules_cache:/app/node_modules
+    environment:
+      VITE_API_URL: http://node-api:8020
+      CHOKIDAR_USEPOLLING: "true"
+    command: /bin/sh -c "bun install && bun ./node_modules/vite/bin/vite.js"
+    depends_on:
+      - node-api
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5173"]
+      interval: 30s
+      retries: 3
+      timeout: 10s
+      start_period: 60s
+
+volumes:
+  vite_deps:
+  genshin_node_modules_cache:
+  moelink_node_modules_cache:

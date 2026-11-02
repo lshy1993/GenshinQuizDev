@@ -28,8 +28,7 @@ services:
       context: ./repos/frontend
       dockerfile: Dockerfile
     ports:
-      # 宿主机 3000 → 容器内 Nginx 8080（Dockerfile 的 EXPOSE 是 8080）
-      - "3000:8080"
+      - "3000:3000"
     environment:
       # Nginx 启动时用 envsubst 注入，/api 反向代理到 Go 后端
       VITE_API_URL: http://genshinquiz-backend:8080
@@ -38,7 +37,7 @@ services:
         condition: service_healthy
     healthcheck:
       # 运行阶段是 nginx:alpine，镜像里没有 bun，必须用 wget 探活
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
       interval: 30s
       retries: 3
       timeout: 10s
@@ -89,34 +88,20 @@ services:
       timeout: 10s
       start_period: 40s
 
-  # Moelink Frontend
+  # MoeLink frontend (Vite build served as static files by Nginx)
   moe-link:
     container_name: moe-link
-    image: oven/bun:1.3.14-alpine
-    working_dir: /app
+    build:
+      context: ./repos/MoeLink
+      dockerfile: Dockerfile
     ports:
       - "5173:5173"
-    volumes:
-      - ./repos/MoeLink:/app
-      - moelink_node_modules_cache:/app/node_modules
-    environment:
-      # 直连同网络的 node-api 服务（不要用 host.docker.internal：Linux/NAS 上默认不可解析）
-      VITE_API_URL: http://node-api:8020
-      CHOKIDAR_USEPOLLING: true
-    depends_on:
-      - node-api
     restart: unless-stopped
-    # 直接执行 vite 的真实入口，绕过 node_modules/.bin/vite 符号链接。
-    # Synology/BTRFS 上 Bun 不会先解析该符号链接，导致 vite 内部的
-    # import('../dist/node/cli.js') 按 .bin 目录解析而报 Cannot find module
-    # （oven-sh/bun#28331、#11073）；ext4/APFS 上不复现。
-    command: /bin/sh -c "bun install && bun ./node_modules/vite/bin/vite.js"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:5173"]
       interval: 30s
       retries: 3
       timeout: 10s
-      start_period: 60s
 
   # Node.js API Server
   node-api:
@@ -171,7 +156,11 @@ services:
       - maj_node_modules_cache:/app/node_modules
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "ps -ef | grep '[n]ode service/majserver/server.js' >/dev/null 2>&1 || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "ps -ef | grep '[n]ode service/majserver/server.js' >/dev/null 2>&1 || exit 1",
+        ]
       interval: 30s
       retries: 3
       timeout: 10s
