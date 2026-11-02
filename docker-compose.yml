@@ -197,8 +197,6 @@ services:
       SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
       ADMIN_SECRET: ${ADMIN_SECRET:-}
       SESSION_SECRET: ${SESSION_SECRET:-}
-      # 模拟行情引擎由独立 stock-worker 运行，API 重启不影响 tick
-      DISABLE_STOCK_MARKET_SCHEDULER: "1"
     volumes:
       - ./repos/node-api:/app
       - node_modules_cache:/app/node_modules
@@ -216,12 +214,15 @@ services:
     # 启动前自动执行 moelink 库的 knex 迁移（NAS 首次部署时库是空的）
     command: /bin/sh -c "npm install && npx knex migrate:latest && node app.js"
 
-  # 模拟行情引擎，独立于 node-api，API 重启不会中断 20s tick
+  # 真实股票数据 API + 抓取调度，独立于 node-api
   stock-worker:
     container_name: stock-worker
     image: node:22-alpine
     working_dir: /app
+    ports:
+      - "127.0.0.1:8182:8182"
     environment:
+      PORT: "8182"
       DATABASE_HOST: postgres
       DATABASE_USER: postgres
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -233,11 +234,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "ps -ef | grep '[n]ode worker/stock.js' >/dev/null 2>&1 || exit 1",
-        ]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8182/health"]
       interval: 30s
       retries: 3
       timeout: 10s

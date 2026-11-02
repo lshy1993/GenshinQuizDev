@@ -13,7 +13,7 @@ This repository is the deployment workspace for several independently versioned 
 | `auth-service` | Go + Chi | Unified authentication: users, credentials, OAuth, JWT |
 | `moe-link` | Vue + Vite, served by Nginx | MoeLink user interface |
 | `node-api` | Node.js + Express + PostgreSQL | MoeLink API, forum, shop, wallet, and unified-user integration |
-| `stock-worker` | Node.js | Simulated stock-market engine (20s tick), independent of `node-api` restarts |
+| `stock-worker` | Node.js | Real stock data API (`/stock/*`) and crawl scheduler, independent of `node-api` restarts |
 | `maj-server` | Node.js | Mahjong service |
 | `moelink-gateway` | Node.js | API reverse proxy, health monitoring, statistics, dashboard, and release status |
 | `postgres` | PostgreSQL | Persistent storage for the applications |
@@ -31,7 +31,7 @@ Containers connect to each other using Compose service names, for example:
 
 The public host ports are declared in `docker-compose.yml`. PostgreSQL is bound to the host loopback address only, with a default host port of 5432. Set `POSTGRES_HOST_PORT` in the root `.env` to use another host port; the internal container port remains 5432.
 
-The gateway listens on port 8000. It exposes `/auth`, `/node-api`, and `/go-api` proxy prefixes, monitors configured services, and serves its dashboard at `/_gateway/ui`.
+The gateway listens on port 8000. It exposes `/auth`, `/stock`, `/node-api`, and `/go-api` proxy prefixes, monitors configured services, and serves its dashboard at `/_gateway/ui`.
 
 `api.moelink.site` should point at the gateway, not directly at node-api. The gateway sends `/auth/*` to `auth-service`, `/go-api/*` to the quiz API, and its `/` catch-all to node-api. This keeps the public API origin stable while giving authentication and quiz routes a single entry point.
 

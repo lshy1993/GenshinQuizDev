@@ -19,11 +19,7 @@ services:
   # React (Vite dev server, hot reload)
   genshinquiz-frontend:
     container_name: genshinquiz-frontend
-    image: genshinquiz-frontend-dev
-    build:
-      context: ./repos/frontend
-      dockerfile: Dockerfile
-      target: builder
+    image: oven/bun:1.3.14-alpine
     working_dir: /app
     ports:
       - "3000:3000"
@@ -161,11 +157,7 @@ services:
   # MoeLink (Vite dev server, hot reload)
   moe-link:
     container_name: moe-link
-    image: moelink-frontend-dev
-    build:
-      context: ./repos/MoeLink
-      dockerfile: Dockerfile
-      target: builder
+    image: oven/bun:1.3.14-alpine
     working_dir: /app
     ports:
       - "5173:5173"
@@ -174,7 +166,8 @@ services:
       - moelink_node_modules_cache:/app/node_modules
     environment:
       VITE_API_URL: http://node-api:8020
-      VITE_PRIMEUI_LICENSE_KEY: ${VITE_PRIMEUI_LICENSE_KEY:-}
+      # 仅在根 .env 有值时注入；未设置则让 Vite 读取 repos/MoeLink/.env.local
+      VITE_PRIMEUI_LICENSE_KEY:
       CHOKIDAR_USEPOLLING: "true"
     command: /bin/sh -c "bun install && bun ./node_modules/vite/bin/vite.js"
     depends_on:
@@ -213,8 +206,6 @@ services:
       SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
       ADMIN_SECRET: ${ADMIN_SECRET:-}
       SESSION_SECRET: ${SESSION_SECRET:-}
-      # 模拟行情引擎由独立 stock-worker 运行，API 重启不影响 tick
-      DISABLE_STOCK_MARKET_SCHEDULER: "1"
     volumes:
       - ./repos/node-api:/app
       - node_modules_cache:/app/node_modules
@@ -232,12 +223,15 @@ services:
     # 启动前自动执行 moelink 库的 knex 迁移（NAS 首次部署时库是空的）
     command: /bin/sh -c "npm install && npx knex migrate:latest && node app.js"
 
-  # 模拟行情引擎，独立于 node-api，API 重启不会中断 20s tick
+  # 真实股票数据 API + 抓取调度，独立于 node-api
   stock-worker:
     container_name: stock-worker
     image: node:22-alpine
     working_dir: /app
+    ports:
+      - "127.0.0.1:8182:8182"
     environment:
+      PORT: "8182"
       DATABASE_HOST: postgres
       DATABASE_USER: postgres
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -249,11 +243,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "ps -ef | grep '[n]ode worker/stock.js' >/dev/null 2>&1 || exit 1",
-        ]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8182/health"]
       interval: 30s
       retries: 3
       timeout: 10s
@@ -290,9 +280,9 @@ services:
   # Gateway: reverse proxy + per-API traffic stats + health monitoring/alerts
   moelink-gateway:
     container_name: moelink-gateway
-    build:
-      context: ./repos/moelink-gateway
-      dockerfile: Dockerfile
+    image: oven/bun:1.3.14-alpine
+    working_dir: /app
+    command: bun --watch src/server.js
     ports:
       - "8000:8000"
     environment:
@@ -306,6 +296,7 @@ services:
       STATS_FILE: /data/stats.json
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     volumes:
+      - ./repos/moelink-gateway:/app
       - gateway_data:/data
       - ./repos:/repos:ro # release guardian 读取各仓库 HEAD
     restart: unless-stopped

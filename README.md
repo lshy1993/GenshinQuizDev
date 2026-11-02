@@ -62,7 +62,7 @@ https://api.moelink.site/auth/github/callback
 
 ### Public API entry
 
-Point `api.moelink.site` at the gateway (host port `8000`), not directly at node-api (`8020`) or the Go services (`8080` / `8081`). The gateway forwards `/auth/*` to `auth-service`, `/go-api/*` to the quiz API, and its `/` catch-all forwards every other path to node-api. Existing URLs such as `https://api.moelink.site/user/session` therefore keep working, while OAuth becomes available. In Cloudflare Tunnel, change the `api.moelink.site` service target from `http://localhost:8020` to `http://localhost:8000`; no path rules are required.
+Point `api.moelink.site` at the gateway (host port `8000`), not directly at node-api (`8020`) or the Go services (`8080` / `8081`). The gateway forwards `/auth/*` to `auth-service`, `/stock/*` to the stock worker, `/go-api/*` to the quiz API, and its `/` catch-all forwards every other path to node-api. Existing URLs such as `https://api.moelink.site/user/session` therefore keep working, while OAuth becomes available. In Cloudflare Tunnel, change the `api.moelink.site` service target from `http://localhost:8020` to `http://localhost:8000`; no path rules are required.
 
 ### Services and ports
 
@@ -74,7 +74,7 @@ Point `api.moelink.site` at the gateway (host port `8000`), not directly at node
 | MoeLink frontend | 5173 | Static site |
 | MoeLink gateway/dashboard | 8000 | Dashboard: `/_gateway/ui` |
 | MoeLink Node API | 8020 | |
-| Stock worker | — | No HTTP port; runs the simulated stock-market engine |
+| Stock worker | 8182 (loopback) | Real stock data API (`/stock/*`) and crawl scheduler |
 | maj-server | 8181 | |
 | PostgreSQL | 5432 by default | Bound to loopback; configure with `POSTGRES_HOST_PORT` |
 
@@ -85,7 +85,7 @@ The database is not exposed to the LAN by default. Container-to-container connec
 `docker-compose.local.yml` is a complete, standalone Compose file (it does not extend `docker-compose.yml`). It starts every service and runs both Vite frontends with source mounts and hot reload:
 
 ```bash
-docker compose -f docker-compose.local.yml up -d --build
+docker compose -f docker-compose.local.yml up -d
 ```
 
 Use `docker-compose.yml` for the static production-style deployment. Both files read the same root `.env`; keep service definitions in sync when changing either file. `vue-home` is not currently defined as a Compose service.

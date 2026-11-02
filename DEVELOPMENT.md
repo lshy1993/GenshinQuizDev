@@ -19,10 +19,10 @@ docker compose up -d --build
 Use the standalone local Compose file:
 
 ```bash
-docker compose -f docker-compose.local.yml up -d --build
+docker compose -f docker-compose.local.yml up -d
 ```
 
-`docker-compose.local.yml` defines every service on its own and differs from the default file only in that the GenshinQuiz and MoeLink frontends run Vite development servers with mounted source directories. `vue-home` is not currently a Compose service.
+`docker-compose.local.yml` defines every service on its own and differs from the default file only in that the GenshinQuiz and MoeLink frontends (Vite) and the gateway (`bun --watch`) run directly on the `oven/bun` image with mounted source directories. `vue-home` is not currently a Compose service.
 
 To return to static mode, run:
 
@@ -43,7 +43,7 @@ The override uses the same published frontend ports (3000 and 5173), so do not r
 | `moe-link` | 5173 | MoeLink frontend |
 | `moelink-gateway` | 8000 | API gateway and dashboard |
 | `node-api` | 8020 | MoeLink API |
-| `stock-worker` | — | Simulated stock-market engine |
+| `stock-worker` | 8182 (loopback) | Real stock data API and crawl scheduler |
 | `maj-server` | 8181 | Mahjong service |
 | `postgres` | 5432 by default | PostgreSQL, host binding is loopback-only |
 
