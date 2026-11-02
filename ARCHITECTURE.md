@@ -16,7 +16,7 @@ This repository is the deployment workspace for several independently versioned 
 | `moelink-gateway` | Node.js | API reverse proxy, health monitoring, statistics, dashboard, and release status |
 | `postgres` | PostgreSQL | Persistent storage for the applications |
 
-The default Compose file builds both web frontends as static assets served by Nginx. `docker-compose.local.yml` is an override for local development that switches these two services to Vite development servers with source mounts and hot reload.
+The default Compose file builds both web frontends as static assets served by Nginx. `docker-compose.local.yml` is a standalone, complete Compose file for local development (it does not extend the default file); it runs the same services but serves these two frontends from Vite development servers with source mounts and hot reload.
 
 ## Network and access
 

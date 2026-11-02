@@ -16,18 +16,18 @@ docker compose up -d --build
 
 ### Vite hot reload (local development)
 
-Combine the default Compose file with the local override:
+Use the standalone local Compose file:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
-The override switches only the GenshinQuiz and MoeLink frontends to Vite development servers and mounts their source directories. The other services retain the default Compose configuration. `vue-home` is not currently a Compose service.
+`docker-compose.local.yml` defines every service on its own and differs from the default file only in that the GenshinQuiz and MoeLink frontends run Vite development servers with mounted source directories. `vue-home` is not currently a Compose service.
 
-To return to static mode after using the override, run:
+To return to static mode, run:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml down
+docker compose -f docker-compose.local.yml down
 docker compose up -d --build
 ```
 
@@ -72,7 +72,7 @@ bun install
 bun run dev
 ```
 
-The Vite development server uses port 3000. Use the root `docker-compose.local.yml` override when you want the frontend container to proxy to the other services on the Compose network.
+The Vite development server uses port 3000. Use the root `docker-compose.local.yml` when you want the frontend container to proxy to the other services on the Compose network.
 
 ### MoeLink frontend
 

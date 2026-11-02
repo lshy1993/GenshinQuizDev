@@ -104,10 +104,71 @@ clone_or_update() {
     fi
 }
 
+random_secret() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 24
+    else
+        head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n'
+    fi
+}
+
+# 由 .env.example 生成 .env：已有 .env 的值会保留，change-me 占位符自动换成随机密钥
+generate_env() {
+    local force=$1 old=""
+    if [ ! -f .env.example ]; then
+        print_error "找不到 .env.example"
+        return 1
+    fi
+    if [ -f .env ]; then
+        if [ "$force" -ne 1 ]; then
+            print_warning ".env 已存在，未改动（需要重新生成请用 ./setup.sh --env --force）"
+            return 0
+        fi
+        old=".env.bak.$(date +%Y%m%d%H%M%S)"
+        cp .env "$old"
+        print_status "已备份旧 .env -> $old"
+    fi
+
+    local line key val prev tmp
+    tmp=$(mktemp)
+    while IFS= read -r line || [ -n "$line" ]; do
+        if [[ $line =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+            key="${BASH_REMATCH[1]}"
+            val="${BASH_REMATCH[2]}"
+            if [ -n "$old" ] && grep -q "^$key=" "$old"; then
+                val=$(grep "^$key=" "$old" | tail -1 | cut -d= -f2-)
+            elif [[ $val == change-me* ]]; then
+                val=$(random_secret)
+            fi
+            echo "$key=$val" >> "$tmp"
+        else
+            echo "$line" >> "$tmp"
+        fi
+    done < .env.example
+
+    if [ -n "$old" ]; then
+        local extra=""
+        while IFS= read -r line; do
+            [[ $line =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]] || continue
+            key="${BASH_REMATCH[1]}"
+            grep -q "^$key=" .env.example || extra+="$line"$'\n'
+        done < "$old"
+        if [ -n "$extra" ]; then
+            printf '\n# 旧 .env 中保留的其他变量\n%s' "$extra" >> "$tmp"
+        fi
+    fi
+
+    mv "$tmp" .env
+    chmod 600 .env
+    print_status "✅ 已生成 .env（密钥已随机生成；请补全 OAuth 等第三方密钥后再启动）"
+}
+
 main() {
-    local do_up=0 use_sudo=0
+    local do_up=0 use_sudo=0 env_only=0 force=0
     for arg in "$@"; do
         case "$arg" in
+            --env) env_only=1 ;;
+            --force) force=1 ;;
             --up) do_up=1 ;;
             -s|--sudo) use_sudo=1 ;;
             *) print_error "未知参数: $arg"; exit 1 ;;
@@ -115,6 +176,11 @@ main() {
     done
 
     cd "$(dirname "$0")" || exit 1
+
+    if [ "$env_only" -eq 1 ]; then
+        generate_env "$force"
+        exit $?
+    fi
 
     print_status "🚀 更新主仓库"
     if [ -d .git ]; then
@@ -130,8 +196,8 @@ main() {
     cd ..
 
     if [ ! -f .env ] && [ -f .env.example ]; then
-        cp .env.example .env
-        print_warning "已从 .env.example 生成 .env，请修改其中的 JWT_SECRET、POSTGRES_PASSWORD 等后再启动（NAS 上 5432 被占用请改 POSTGRES_HOST_PORT）"
+        generate_env 0
+        print_warning "请检查 .env（NAS 上 5432 被占用请改 POSTGRES_HOST_PORT，并补全 OAuth 等密钥）"
         if [ "$do_up" -eq 1 ]; then
             print_error "请先编辑 .env，再重新执行 ./setup.sh --up"
             exit 1

@@ -28,3 +28,4 @@ repos/
 
 # 本地/NAS 部署密钥
 /.env
+/.env.bak.*

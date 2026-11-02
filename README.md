@@ -38,7 +38,27 @@ The default [docker-compose.yml](./docker-compose.yml) builds and serves both fr
 
 On Synology Container Manager, create a Project from this directory and its `docker-compose.yml`. Include the complete `repos/` and `config/` directories and the edited `.env`.
 
+To generate only `.env` without updating repositories or starting services, run `./setup.sh --env`. It fills `change-me` placeholders (JWT, database password, admin tokens, session secret) with random values and never overwrites an existing `.env`. `./setup.sh --env --force` regenerates it from `.env.example`: the old file is backed up as `.env.bak.<timestamp>`, and existing values (and any extra variables) are preserved. Fill in the optional keys (OAuth, Sentry, Resend, Azure) afterwards.
+
 Alternatively, `./setup.sh --up` updates repositories and starts Compose after the repositories are clean. On Synology, where Docker requires elevated permissions, use `./setup.sh --up --sudo`. If the script creates `.env` during that run, it stops so that you can edit the secrets before retrying.
+
+### Google and GitHub sign-in
+
+The Go API handles OAuth callbacks for both applications. Configure Google and GitHub OAuth credentials in the root `.env`:
+
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
+- `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET`
+- `OAUTH_CALLBACK_BASE_URL=https://api.moelink.site`
+- `OAUTH_COOKIE_DOMAIN=.moelink.site` so the state cookie is shared across the frontend and API subdomains
+
+Register these exact callback URLs with the providers:
+
+```text
+https://api.moelink.site/auth/google/callback
+https://api.moelink.site/auth/github/callback
+```
+
+`OAUTH_ALLOWED_REDIRECT_ORIGINS` is an exact allowlist for the final frontend redirect. The OAuth flow only accepts a verified provider email; it links that email to an existing unified account or creates a new one. Provider access tokens are not stored. Use separate provider applications and credentials for local testing; set `OAUTH_CALLBACK_BASE_URL=http://localhost:8000` and leave `OAUTH_COOKIE_DOMAIN` empty for local Compose development. Restart/recreate the Go API after changing `.env`.
 
 ### Services and ports
 
@@ -56,13 +76,13 @@ The database is not exposed to the LAN by default. Container-to-container connec
 
 ## Local frontend development
 
-Use the local Compose override to run both Vite frontends with source mounts and hot reload. Backend, database, and gateway settings remain based on the default Compose file:
+`docker-compose.local.yml` is a complete, standalone Compose file (it does not extend `docker-compose.yml`). It starts every service and runs both Vite frontends with source mounts and hot reload:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+docker compose -f docker-compose.local.yml up -d --build
 ```
 
-Use the default Compose file alone for static frontend builds. `vue-home` is not currently defined as a Compose service.
+Use `docker-compose.yml` for the static production-style deployment. Both files read the same root `.env`; keep service definitions in sync when changing either file. `vue-home` is not currently defined as a Compose service.
 
 ## Useful commands
 

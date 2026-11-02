@@ -58,6 +58,19 @@ services:
       # 统一用户系统：与 node-api 使用同一 JWT_SECRET（HS256）
       # ⚠️ 生产/NAS 部署务必在 .env 中设置强随机值（与 node-api 一致）
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      APP_DOMAIN: ${APP_DOMAIN:-http://localhost:3000}
+      SENTRY_DSN: ${GO_SENTRY_DSN:-}
+      RESEND_KEY: ${RESEND_KEY:-}
+      AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT:-}
+      AZURE_STORAGE_KEY: ${AZURE_STORAGE_KEY:-}
+      AZURE_CONTAINER_NAME: ${AZURE_CONTAINER_NAME:-genshin-quiz}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
+      GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
+      OAUTH_CALLBACK_BASE_URL: ${OAUTH_CALLBACK_BASE_URL:-}
+      OAUTH_COOKIE_DOMAIN: ${OAUTH_COOKIE_DOMAIN:-}
+      OAUTH_ALLOWED_REDIRECT_ORIGINS: ${OAUTH_ALLOWED_REDIRECT_ORIGINS:-https://moelink.site,https://www.moelink.site,https://quiz.moelink.site,http://localhost:3000,http://localhost:5173}
     volumes:
       - ./repos/backend:/app
       - go_mods:/go/pkg/mod
@@ -94,6 +107,8 @@ services:
     build:
       context: ./repos/MoeLink
       dockerfile: Dockerfile
+      args:
+        VITE_PRIMEUI_LICENSE_KEY: ${VITE_PRIMEUI_LICENSE_KEY:-}
     ports:
       - "5173:5173"
     restart: unless-stopped
@@ -123,6 +138,11 @@ services:
       GO_BACKEND_URL: http://genshinquiz-backend:8080
       # 小屋编辑权限：仅这些 user_id（逗号分隔）可写，本地默认 6
       MIAO_OWNER_USER_IDS: "${MIAO_OWNER_USER_IDS:-6}"
+      SENTRY_DSN: ${NODE_SENTRY_DSN:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
     volumes:
       - ./repos/node-api:/app
       - node_modules_cache:/app/node_modules
