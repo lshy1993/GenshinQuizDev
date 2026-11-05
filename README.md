@@ -29,7 +29,7 @@ The default [docker-compose.yml](./docker-compose.yml) builds and serves both fr
    - Replace `JWT_SECRET`, `POSTGRES_PASSWORD`, and `GATEWAY_ADMIN_TOKEN` with private values.
    - `JWT_SECRET` is only used by `auth-service` for OAuth state tokens. Login tokens are signed with an ES256 key that `auth-service` generates into the `auth_keys` volume; other services verify them through `AUTH_JWKS_URL`. In production also set `SESSION_COOKIE_DOMAIN=.moelink.site`.
    - Set `BOOTSTRAP_ADMIN_EMAIL` to your email. If no admin exists yet, `auth-service` will create the account with `BOOTSTRAP_ADMIN_PASSWORD` (or promote an existing verified account) on first start. If the account exists but is unverified, the password must match or set `BOOTSTRAP_ADMIN_RESET_PASSWORD=true`. Remove the password from `.env` after the first successful login.
-   - Set `GATEWAY_ADMIN_EMAILS` and `MIAO_OWNER_EMAILS` to your email. Email whitelists are stable across database rebuilds; `GATEWAY_ADMIN_USER_IDS` / `MIAO_OWNER_USER_IDS` remain only for compatibility.
+   - Set `GATEWAY_ADMIN_EMAILS` and `MIAO_OWNER_EMAILS` to your email. Other administrators are granted `users.user_role=1` from the web admin UI; `GATEWAY_ADMIN_EMAILS` is only a break-glass path when node-api is unavailable. `MIAO_OWNER_EMAILS` stays independent so ordinary admins cannot edit your 小屋.
 
    To add an admin later without changing startup env, run inside the auth-service container:
 

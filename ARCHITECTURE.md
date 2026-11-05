@@ -67,7 +67,7 @@ The first administrator is selected by **email**, not `user_id`:
 - if it exists but is unverified, the password must match, or set `BOOTSTRAP_ADMIN_RESET_PASSWORD=true` to take it over
 - if it does not exist, the account is created with the configured password
 
-For later promotion, run `go run ./cmd/seed-admin -email you@example.com` inside `auth-service`. `GATEWAY_ADMIN_EMAILS` and `MIAO_OWNER_EMAILS` are the stable email whitelists; the old `*_USER_IDS` settings are compatibility only.
+For later promotion, run `go run ./cmd/seed-admin -email you@example.com` inside `auth-service`. After bootstrap, administrator access is driven by `users.user_role=1`, which can be changed from the web admin UI. `GATEWAY_ADMIN_EMAILS` is only a break-glass email for gateway access when node-api is unavailable; `MIAO_OWNER_EMAILS` is a separate 小屋 owner list so ordinary admins cannot edit it.
 
 ### Sessions and single sign-on
 
