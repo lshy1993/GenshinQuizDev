@@ -57,6 +57,18 @@ Persistent database files are stored in the `postgres_data` named volume. Removi
 
 Phase 1 keeps the auth and quiz tables in the same `genshinquiz` database: the quiz container still applies goose migrations, and `auth-service` starts only after the quiz health check passes. Splitting the auth schema/database is a separate later step.
 
+### Initial admin
+
+The first administrator is selected by **email**, not `user_id`:
+
+- `BOOTSTRAP_ADMIN_EMAIL` plus `BOOTSTRAP_ADMIN_PASSWORD` on first start
+- only applies while there are zero `user_role=1` users
+- if the email already exists and is verified, it is promoted; its password is not changed
+- if it exists but is unverified, the password must match, or set `BOOTSTRAP_ADMIN_RESET_PASSWORD=true` to take it over
+- if it does not exist, the account is created with the configured password
+
+For later promotion, run `go run ./cmd/seed-admin -email you@example.com` inside `auth-service`. `GATEWAY_ADMIN_EMAILS` and `MIAO_OWNER_EMAILS` are the stable email whitelists; the old `*_USER_IDS` settings are compatibility only.
+
 ### Sessions and single sign-on
 
 - **Session cookie.** Login, registration and OAuth create a row in `user_sessions` and set an opaque `HttpOnly` cookie (`moelink_session`; only its SHA-256 is stored). Apps keep the 15-minute access token in memory only and renew it with `POST /auth/session/refresh`. `POST /auth/logout` revokes the session; `POST /auth/logout-all` revokes every session of the user.

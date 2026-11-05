@@ -134,6 +134,11 @@ services:
       # 仅用于 OAuth state / 绑定凭证的 HMAC；不再用于登录 token（登录 token 为 ES256）
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
       APP_DOMAIN: ${APP_DOMAIN:-http://localhost:3000}
+      # 首次部署引导：只有系统里没有任何管理员时才按邮箱创建/提权
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      BOOTSTRAP_ADMIN_NICKNAME: ${BOOTSTRAP_ADMIN_NICKNAME:-}
+      BOOTSTRAP_ADMIN_RESET_PASSWORD: ${BOOTSTRAP_ADMIN_RESET_PASSWORD:-false}
       SENTRY_DSN: ${GO_SENTRY_DSN:-}
       RESEND_KEY: ${RESEND_KEY:-}
       AZURE_STORAGE_ACCOUNT: ${AZURE_STORAGE_ACCOUNT:-}
@@ -204,7 +209,8 @@ services:
       # 统一用户系统现在由独立 auth-service 提供
       GO_BACKEND_URL: http://auth-service:8081
       # 小屋编辑权限：仅这些 user_id（逗号分隔）可写，本地默认 6
-      MIAO_OWNER_USER_IDS: "${MIAO_OWNER_USER_IDS:-6}"
+      MIAO_OWNER_USER_IDS: "${MIAO_OWNER_USER_IDS:-}"
+      MIAO_OWNER_EMAILS: "${MIAO_OWNER_EMAILS:-}"
       SENTRY_DSN: ${NODE_SENTRY_DSN:-}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
       SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
@@ -293,7 +299,8 @@ services:
       # 管理员 JWT 由 auth-service 签发，网关只通过 JWKS 获取公钥校验
       AUTH_JWKS_URL: http://auth-service:8081/auth/.well-known/jwks.json
       # 管理员 user_id 白名单；配置后即使 node-api 挂了也能登录后台
-      GATEWAY_ADMIN_USER_IDS: ${GATEWAY_ADMIN_USER_IDS:-6}
+      GATEWAY_ADMIN_USER_IDS: ${GATEWAY_ADMIN_USER_IDS:-}
+      GATEWAY_ADMIN_EMAILS: ${GATEWAY_ADMIN_EMAILS:-}
       NODE_API_URL: http://node-api:8020
       # 机器 token：Prometheus / 脚本访问 /metrics 用，不是网页登录密码
       GATEWAY_ADMIN_TOKEN: ${GATEWAY_ADMIN_TOKEN:-}
