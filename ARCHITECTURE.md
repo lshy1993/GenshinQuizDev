@@ -48,14 +48,22 @@ Persistent database files are stored in the `postgres_data` named volume. Removi
 
 ## Unified authentication
 
-`auth-service` is the identity authority. It serves `/auth/*`, owns the `users` / `user_credentials` / OAuth tables, and signs the shared HS256 JWT. `genshinquiz-backend`, `node-api`, and the gateway only verify that JWT.
+`auth-service` is the identity authority. It serves `/auth/*`, owns the `users` / `user_credentials` / OAuth / session tables, and is the only service holding a signing key. Access tokens are ES256 JWTs (15 minutes by default); `genshinquiz-backend`, `node-api`, and the gateway only fetch the public key from `AUTH_JWKS_URL` (`/auth/.well-known/jwks.json`) and verify tokens locally. No signing secret is shared with them.
 
 - `genshinquiz-backend` runs with `SERVICE_MODE=quiz`; `/auth/*` returns 404 there.
 - `node-api` forwards login/register/profile calls to `AUTH_SERVICE_URL` (currently `GO_BACKEND_URL=http://auth-service:8081`).
 - The quiz frontend proxies `/api/auth/*` to `auth-service`; all other `/api/*` traffic stays on the quiz backend.
 - The gateway routes `/auth/*` to `auth-service`.
 
-Phase 1 keeps the auth and quiz tables in the same `genshinquiz` database: the quiz container still applies goose migrations, and `auth-service` starts only after the quiz health check passes. Splitting the auth schema/database is a separate later step. Keep `JWT_SECRET` identical across `auth-service`, `node-api`, and the gateway.
+Phase 1 keeps the auth and quiz tables in the same `genshinquiz` database: the quiz container still applies goose migrations, and `auth-service` starts only after the quiz health check passes. Splitting the auth schema/database is a separate later step.
+
+### Sessions and single sign-on
+
+- **Session cookie.** Login, registration and OAuth create a row in `user_sessions` and set an opaque `HttpOnly` cookie (`moelink_session`; only its SHA-256 is stored). Apps keep the 15-minute access token in memory only and renew it with `POST /auth/session/refresh`. `POST /auth/logout` revokes the session; `POST /auth/logout-all` revokes every session of the user.
+- **Same registrable domain** (`*.moelink.site`): set `SESSION_COOKIE_DOMAIN=.moelink.site`; every subdomain shares the session, so login/logout in one app shows up in the others on their next refresh (page load or focus). Locally, cookies on `localhost` ignore the port, so `:5173` and `:3000` share the session.
+- **Other domains** use OAuth 2.0 authorization code + PKCE: register the app in `SSO_CLIENTS`, send the user to `https://moelink.site/sso/authorize` (`client_id`, `redirect_uri`, `state`, `code_challenge`, `code_challenge_method=S256`), then redeem the code at `POST /auth/sso/token`. These tokens carry `client_id` and are rejected by all MoeLink services; the partner's own backend verifies them with the JWKS.
+- **Signing key.** `auth-service` creates an ES256 key at `JWT_KEY_FILE` on first start (volume `auth_keys`; back it up, losing it signs everyone out). `JWT_SECRET` remains only for OAuth state / link tokens inside `auth-service`.
+- **Trusted origins.** Cookie-based endpoints and CORS credentials are limited to `OAUTH_ALLOWED_REDIRECT_ORIGINS`.
 
 ## Configuration and deployment
 

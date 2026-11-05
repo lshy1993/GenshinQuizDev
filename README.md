@@ -27,7 +27,7 @@ The default [docker-compose.yml](./docker-compose.yml) builds and serves both fr
 2. Run `./setup.sh` to clone/update the application repositories and initialize submodules. The script uses SSH for GitHub access and updates each repository's `main` branch (falling back to `master` if `main` does not exist).
 3. If `.env` does not exist, the script copies [.env.example](./.env.example) to `.env`. Edit the generated file before starting services:
    - Replace `JWT_SECRET`, `POSTGRES_PASSWORD`, and `GATEWAY_ADMIN_TOKEN` with private values.
-   - Keep `JWT_SECRET` identical across the MoeLink Node API and GenshinQuiz Go API.
+   - `JWT_SECRET` is only used by `auth-service` for OAuth state tokens. Login tokens are signed with an ES256 key that `auth-service` generates into the `auth_keys` volume; other services verify them through `AUTH_JWKS_URL`. In production also set `SESSION_COOKIE_DOMAIN=.moelink.site`.
    - Set `GATEWAY_ADMIN_USER_IDS` to the MoeLink user IDs permitted to sign in to the gateway dashboard.
    - On Synology or another host where port 5432 is occupied, set `POSTGRES_HOST_PORT=5433` (or another free port). This changes only the host mapping; containers continue to use `postgres:5432`.
 4. Start the project:

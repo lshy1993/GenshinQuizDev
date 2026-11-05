@@ -52,7 +52,7 @@ Containers connect to PostgreSQL at `postgres:5432`. To avoid a host-side port c
 ## Initial deployment
 
 1. Copy `.env.example` to `.env` if it does not exist. `./setup.sh` does this automatically.
-2. Set private values for `JWT_SECRET`, `POSTGRES_PASSWORD`, and `GATEWAY_ADMIN_TOKEN`. `JWT_SECRET` must match between the Go and Node APIs.
+2. Set private values for `JWT_SECRET`, `POSTGRES_PASSWORD`, and `GATEWAY_ADMIN_TOKEN`. `JWT_SECRET` is only used by `auth-service`; the other services verify login tokens with the public key served at `AUTH_JWKS_URL`.
 3. If this is a fresh deployment, run `./setup.sh` to fetch the application repositories and initialize their submodules.
 4. Start all services:
 
