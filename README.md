@@ -47,6 +47,15 @@ The default [docker-compose.yml](./docker-compose.yml) builds and serves both fr
 
 On Synology Container Manager, create a Project from this directory and its `docker-compose.yml`. Include the complete `repos/` and `config/` directories and the edited `.env`.
 
+When `.env.example` gains new keys, merge them into an existing `.env` without overwriting current values:
+
+```bash
+./merge-env.sh .env.example .env local   # local dev: keeps SESSION_COOKIE_DOMAIN empty
+./merge-env.sh .env.example .env         # production: uses example defaults for new keys
+```
+
+The script backs up the old file as `.env.bak.<timestamp>` and only appends missing keys. `./setup.sh --env --force` also merges existing values, but it regenerates from the example and may apply production defaults such as `SESSION_COOKIE_DOMAIN=.moelink.site`.
+
 To generate only `.env` without updating repositories or starting services, run `./setup.sh --env`. It fills `change-me` placeholders (JWT, database password, admin tokens, session secret) with random values and never overwrites an existing `.env`. `./setup.sh --env --force` regenerates it from `.env.example`: the old file is backed up as `.env.bak.<timestamp>`, and existing values (and any extra variables) are preserved. Fill in the optional keys (OAuth, Sentry, Resend, Azure) afterwards.
 
 Alternatively, `./setup.sh --up` updates repositories and starts Compose after the repositories are clean. On Synology, where Docker requires elevated permissions, use `./setup.sh --up --sudo`. If the script creates `.env` during that run, it stops so that you can edit the secrets before retrying.
