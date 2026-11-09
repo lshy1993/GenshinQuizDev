@@ -39,7 +39,9 @@ The default [docker-compose.yml](./docker-compose.yml) builds and serves both fr
 
    If the account does not exist yet, add `-password '...' -nickname '...'`. Existing accounts are only promoted and their password is not changed; add `-reset-password` only if you explicitly want to overwrite it.
    - On Synology or another host where port 5432 is occupied, set `POSTGRES_HOST_PORT=5433` (or another free port). This changes only the host mapping; containers continue to use `postgres:5432`.
-4. Start the project:
+4. Optionally set `VITE_BUILD_VERSION` in `.env` before building MoeLink (for example the Git short SHA). If left empty, MoeLink uses its build timestamp. The value is shown as a light watermark in the home page footer.
+
+5. Start the project:
 
    ```bash
    docker compose up -d --build

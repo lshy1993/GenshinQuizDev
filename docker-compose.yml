@@ -181,6 +181,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_PRIMEUI_LICENSE_KEY: ${VITE_PRIMEUI_LICENSE_KEY:-}
+        VITE_BUILD_VERSION: ${VITE_BUILD_VERSION:-}
     ports:
       - "5173:5173"
     restart: unless-stopped

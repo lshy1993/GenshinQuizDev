@@ -186,6 +186,7 @@ services:
       VITE_API_URL: http://node-api:8020
       # 仅在根 .env 有值时注入；未设置则让 Vite 读取 repos/MoeLink/.env.local
       VITE_PRIMEUI_LICENSE_KEY:
+      VITE_BUILD_VERSION: ${VITE_BUILD_VERSION:-}
       CHOKIDAR_USEPOLLING: "true"
     command: /bin/sh -c "bun install && bun ./node_modules/vite/bin/vite.js"
     depends_on:
