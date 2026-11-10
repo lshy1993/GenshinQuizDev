@@ -298,6 +298,7 @@ services:
     environment:
       # 管理员 JWT 由 auth-service 签发，网关只通过 JWKS 获取公钥校验
       AUTH_JWKS_URL: http://auth-service:8081/auth/.well-known/jwks.json
+      AUTH_SERVICE_URL: http://auth-service:8081
       # 管理员 user_id 白名单；配置后即使 node-api 挂了也能登录后台
       GATEWAY_ADMIN_EMAILS: ${GATEWAY_ADMIN_EMAILS:-}
       NODE_API_URL: http://node-api:8020
