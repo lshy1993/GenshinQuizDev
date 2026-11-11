@@ -313,6 +313,19 @@ services:
       GATEWAY_ADMIN_TOKEN: ${GATEWAY_ADMIN_TOKEN:-}
       STATS_FILE: /data/stats.json
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # HealthMonitor -> NotificationManager（QQ / Telegram / Discord）
+      # 容器内访问宿主机 NapCat 时可用 http://host.docker.internal:3000
+      QQ_NOTIFIER_ENABLED: ${QQ_NOTIFIER_ENABLED:-}
+      QQ_NOTIFIER_URL: ${QQ_NOTIFIER_URL:-}
+      QQ_NOTIFIER_USER_ID: ${QQ_NOTIFIER_USER_ID:-}
+      QQ_NOTIFIER_TOKEN: ${QQ_NOTIFIER_TOKEN:-}
+      TELEGRAM_NOTIFIER_ENABLED: ${TELEGRAM_NOTIFIER_ENABLED:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      DISCORD_NOTIFIER_ENABLED: ${DISCORD_NOTIFIER_ENABLED:-}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - gateway_data:/data
       - ./repos:/repos:ro # release guardian 读取各仓库 HEAD
