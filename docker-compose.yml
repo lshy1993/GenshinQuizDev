@@ -214,6 +214,9 @@ services:
       # 小屋编辑权限：仅这些 user_id（逗号分隔）可写，本地默认 6
       MIAO_OWNER_EMAILS: "${MIAO_OWNER_EMAILS:-}"
       SENTRY_DSN: ${NODE_SENTRY_DSN:-}
+      # Sentry 事件的环境标签；不设置会落到 development，容易在生产列表里看不到
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
       SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
       SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
       ADMIN_SECRET: ${ADMIN_SECRET:-}
