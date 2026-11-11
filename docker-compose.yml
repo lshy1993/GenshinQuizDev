@@ -31,6 +31,8 @@ services:
     build:
       context: ./repos/frontend
       dockerfile: Dockerfile
+      args:
+        VITE_BUILD_VERSION: ${VITE_BUILD_VERSION:-}
     ports:
       - "3000:3000"
     environment:
@@ -293,6 +295,8 @@ services:
     build:
       context: ./repos/moelink-gateway
       dockerfile: Dockerfile
+      args:
+        GATEWAY_BUILD_VERSION: ${GATEWAY_BUILD_VERSION:-}
     ports:
       - "8000:8000"
     environment:

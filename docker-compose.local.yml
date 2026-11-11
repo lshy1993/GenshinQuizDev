@@ -32,6 +32,7 @@ services:
     environment:
       VITE_API_URL: http://genshinquiz-backend:8080
       AUTH_API_URL: http://auth-service:8081
+      VITE_BUILD_VERSION: ${VITE_BUILD_VERSION:-}
       CHOKIDAR_USEPOLLING: "true"
     command: /bin/sh -c "bun install && bun run dev:docker"
     depends_on:
@@ -314,6 +315,7 @@ services:
       GATEWAY_ADMIN_TOKEN: ${GATEWAY_ADMIN_TOKEN:-}
       STATS_FILE: /data/stats.json
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GATEWAY_BUILD_VERSION: ${GATEWAY_BUILD_VERSION:-dev}
     volumes:
       - ./repos/moelink-gateway:/app
       - gateway_data:/data
