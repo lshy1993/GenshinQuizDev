@@ -87,6 +87,12 @@ bun run dev
 
 The Vite development server uses port 5173. For an application build, run `bun run build-only`. `bun run build` also runs the TypeScript check.
 
+MoeLink is translated into Chinese (source), Japanese and English with `vue-i18n`:
+
+- Messages live in `src/locales/<zh|ja|en>/<namespace>.json` and are picked up automatically; use `$t('namespace.key')` in templates and `import { t } from '@/i18n'` in `.ts` modules. Write a literal `@`, `|`, `{` or `}` in a message as `{'@'}` and so on.
+- The UI language comes from the signed-in user's profile `language` (shared with GenshinQuiz), otherwise the last manual choice, otherwise the browser language. The top bar selector changes it immediately and writes it back to the profile when signed in. Traditional Chinese (`zh-TW`) currently falls back to Chinese.
+- Run `bun run check:i18n` after editing messages: it checks that all three languages have the same keys and placeholders, that messages are valid, and that every statically referenced key exists.
+
 ### Go API
 
 The Go API source is in `repos/backend`. For the containerized workflow, use the root Compose service. Its container runs Goose migrations and starts the server. For local Go development, consult `repos/backend/README.md` and the Taskfile in that repository.
