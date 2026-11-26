@@ -173,6 +173,54 @@ services:
       timeout: 10s
       start_period: 60s
 
+  # Cosplay 活动聚合：公共 API / ICS 订阅 / Admin API / 定时抓取（cos.moelink.site 的后端）
+  cos-service:
+    container_name: cos-service
+    image: golang:1.27
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8082:8082"
+    working_dir: /app
+    environment:
+      PORT: "8082"
+      SERVICE_MODE: cos
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      # 独立的 cos 库（不存在时启动前自动创建）
+      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/cos?sslmode=disable"
+      # 仅用于确认 token 持有者是管理员（users.user_role=1），只读 auth-service 所在的 genshinquiz 库
+      USERS_DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/genshinquiz?sslmode=disable"
+      # token 由 auth-service 签发；这里只通过 JWKS 获取公钥校验
+      AUTH_JWKS_URL: http://auth-service:8081/auth/.well-known/jwks.json
+      COS_UID_DOMAIN: ${COS_UID_DOMAIN:-cos.moelink.site}
+      # 抓取默认拒绝内网 / 回环地址；仅在需要抓取内网测试页面时设为 true
+      COS_ALLOW_PRIVATE_FETCH: ${COS_ALLOW_PRIVATE_FETCH:-false}
+      SENTRY_DSN: ${GO_SENTRY_DSN:-}
+    volumes:
+      - ./repos/backend:/app
+      - go_mods:/go/pkg/mod
+      - go_bin:/app/bin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # genshinquiz-backend 负责安装 goose 并迁移 users 表
+      genshinquiz-backend:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        go run ./cmd/cos -ensure-db
+        /app/bin/goose -dir migrations/cos postgres "$$DATABASE_URL" up || { echo "cos migration failed"; exit 1; }
+        exec go run ./cmd/cos
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8082/health"]
+      interval: 30s
+      retries: 3
+      timeout: 10s
+      start_period: 90s
+
   # MoeLink (Vite dev server, hot reload)
   moe-link:
     container_name: moe-link
@@ -185,6 +233,8 @@ services:
       - moelink_node_modules_cache:/app/node_modules
     environment:
       VITE_API_URL: http://node-api:8020
+      # /api/cos/* 经网关转到 cos-service（Cos 日程页面）
+      COS_GATEWAY_URL: http://moelink-gateway:8000
       # 仅在根 .env 有值时注入；未设置则让 Vite 读取 repos/MoeLink/.env.local
       VITE_PRIMEUI_LICENSE_KEY:
       VITE_BUILD_VERSION: ${VITE_BUILD_VERSION:-}

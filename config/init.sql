@@ -5,6 +5,8 @@
 CREATE DATABASE genshinquiz;
 -- AlphaSoul 麻将数据（maj-server / maj 工具用）
 CREATE DATABASE majstatus;
+-- Cosplay 活动聚合（cos-service）；已有数据卷时 cos-service 启动前会自动创建
+CREATE DATABASE cos;
 
 -- 创建用户（如果需要额外的用户）
 -- CREATE USER genshin_user WITH PASSWORD 'your_password';

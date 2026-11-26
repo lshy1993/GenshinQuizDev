@@ -12,6 +12,7 @@ This repository is the deployment workspace for several independently versioned 
 | `genshinquiz-backend` | Go + Chi | GenshinQuiz API (quiz routes only; no `/auth/*`) |
 | `auth-service` | Go + Chi | Unified authentication: users, credentials, OAuth, JWT |
 | `moe-link` | Vue + Vite, served by Nginx | MoeLink user interface |
+| `cos-service` | Go (`cmd/cos`, `internal/cos`) | Cosplay event aggregation: public event API, RFC 5545 ICS feeds, admin API, and the crawl scheduler. Pages live in MoeLink (`/cos`, `/admin/cos`) |
 | `node-api` | Node.js + Express + PostgreSQL | MoeLink API, forum, shop, wallet, and unified-user integration |
 | `stock-worker` | Node.js | Real stock data API (`/stock/*`) and crawl scheduler, independent of `node-api` restarts |
 | `maj-server` | Node.js | Mahjong service |
@@ -31,7 +32,7 @@ Containers connect to each other using Compose service names, for example:
 
 The public host ports are declared in `docker-compose.yml`. PostgreSQL is bound to the host loopback address only, with a default host port of 5432. Set `POSTGRES_HOST_PORT` in the root `.env` to use another host port; the internal container port remains 5432.
 
-The gateway listens on port 8000. It exposes `/auth`, `/stock`, `/node-api`, and `/go-api` proxy prefixes, monitors configured services, and serves its dashboard at `/_gateway/ui`.
+The gateway listens on port 8000. It exposes `/auth`, `/stock`, `/cos`, `/node-api`, and `/go-api` proxy prefixes, monitors configured services, and serves its dashboard at `/_gateway/ui`.
 
 `api.moelink.site` should point at the gateway, not directly at node-api. The gateway sends `/auth/*` to `auth-service`, `/go-api/*` to the quiz API, and its `/` catch-all to node-api. This keeps the public API origin stable while giving authentication and quiz routes a single entry point.
 
@@ -45,6 +46,18 @@ PostgreSQL initializes the `moelink` database through `POSTGRES_DB`. The root `c
 - `config/init.sql` is run only when the PostgreSQL data directory is first initialized. Existing volumes are not changed by edits to that file.
 
 Persistent database files are stored in the `postgres_data` named volume. Removing the Compose project does not remove named volumes unless `-v` is specified.
+
+## Cosplay event aggregator (`/cos`)
+
+`cos-service` stores crawl sources and events in its own `cos` database (created by `config/init.sql` on a fresh volume, or by `cos-service -ensure-db` on an existing one; tables come from `repos/backend/migrations/cos`). It has no signing key: admin endpoints verify the `auth-service` JWT through `AUTH_JWKS_URL` and then require `users.user_role=1`, read from the `genshinquiz` database through `USERS_DATABASE_URL`. The web pages are part of MoeLink (`/cos` for visitors, `/admin/cos` for the crawl-source console); there is no separate frontend container.
+
+- Routing: the gateway proxies `/cos/*` to `cos-service` (prefix stripped), so the browser calls `api.moelink.site/cos/api/...`. `cos-service` itself answers CORS (open origins, Bearer tokens only) because the gateway does not.
+- Public: `GET /api/regions`, `GET /api/events` (`area`, `range`, `date`, `from`, `to`, `q`), `GET /calendar.ics`, `GET /calendar/{area}.ics` (area is a region or prefecture slug such as `kanto` / `chiba`; `?download=1` adds a download header).
+- Stable subscription URL: calendar clients are given `https://cos.moelink.site/calendar/<area>.ics`. Point `cos.moelink.site` at the `moe-link` container (port 5173); its Nginx (`repos/MoeLink/nginx.conf`) proxies those ICS paths to the gateway `/cos/calendar...` and redirects every other path to `https://moelink.site/cos`.
+- Admin (Bearer token): `/api/admin/sources` CRUD and `POST /api/admin/sources/{id}/run` (`?dry_run=true` parses without writing).
+- Crawl targets live only in `crawl_sources`. The scheduler polls every minute for sources whose `interval_mins` has elapsed, and fetches with a fixed User-Agent, timeout, retry backoff, and a block on private/loopback addresses (`COS_ALLOW_PRIVATE_FETCH=true` disables the block for local testing). "Run now" executes in the `cos-service` process, so the API and the crawler are currently one service.
+- Region and prefecture are stored as Japanese names (e.g. `関東`, `千葉県`); the UI shows Chinese or Japanese. `events.dedup_key` is a hash of normalised title, start date and venue and also seeds the ICS `UID`.
+- `parser_type=default` uses a heuristic list parser; `parser_config` (JSON) overrides it with CSS selectors per field, optionally with `attr` and `regex` (see the field list in the admin form).
 
 ## Unified authentication
 
