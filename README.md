@@ -100,6 +100,16 @@ Point `api.moelink.site` at the gateway (host port `8000`), not directly at node
 
 The database is not exposed to the LAN by default. Container-to-container connections use port 5432 regardless of the host port mapping.
 
+### Error monitoring (Sentry)
+
+Every long-running service can report to Sentry. Empty DSNs disable reporting.
+
+- `genshinquiz-backend`, `auth-service` and `cos-service` use `GO_SENTRY_DSN`.
+- `node-api`, `stock-worker`, `maj-server` and `moelink-gateway` share `NODE_SENTRY_DSN`; each event is tagged with `service` from `SENTRY_SERVICE` so the four processes can be told apart.
+- The React and Vue frontends read `VITE_SENTRY_DSN` at **build time**, so rebuild the frontend images after changing it. Reusing the Node DSN works, but a separate Sentry project per frontend gives cleaner releases.
+
+`node-api` exposes `GET /debug-sentry` for a one-off test event. Frontend source maps are not uploaded automatically; add a Sentry auth token to the build if you need readable stack traces.
+
 ## Local frontend development
 
 `docker-compose.local.yml` is a complete, standalone Compose file (it does not extend `docker-compose.yml`). It starts every service and runs both Vite frontends with source mounts and hot reload:

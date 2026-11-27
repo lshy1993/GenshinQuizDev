@@ -33,6 +33,8 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_BUILD_VERSION: ${VITE_BUILD_VERSION:-}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
     ports:
       - "3000:3000"
     environment:
@@ -232,6 +234,8 @@ services:
       args:
         VITE_PRIMEUI_LICENSE_KEY: ${VITE_PRIMEUI_LICENSE_KEY:-}
         VITE_BUILD_VERSION: ${VITE_BUILD_VERSION:-}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
     ports:
       - "5173:5173"
     restart: unless-stopped
@@ -262,6 +266,8 @@ services:
       # 小屋编辑权限：仅这些 user_id（逗号分隔）可写，本地默认 6
       MIAO_OWNER_EMAILS: "${MIAO_OWNER_EMAILS:-}"
       SENTRY_DSN: ${NODE_SENTRY_DSN:-}
+      # 同一 repo 的三个入口共用 DSN，用 tag 区分事件来源
+      SENTRY_SERVICE: node-api
       # Sentry 事件的环境标签；不设置会落到 development，容易在生产列表里看不到
       ENVIRONMENT: ${ENVIRONMENT:-production}
       SENTRY_RELEASE: ${SENTRY_RELEASE:-}
@@ -298,6 +304,12 @@ services:
       DATABASE_HOST: postgres
       DATABASE_USER: postgres
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SENTRY_DSN: ${NODE_SENTRY_DSN:-}
+      SENTRY_SERVICE: stock-worker
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
     volumes:
       - ./repos/node-api:/app
       - stock_worker_node_modules_cache:/app/node_modules
@@ -323,6 +335,12 @@ services:
       DATABASE_HOST: postgres
       DATABASE_USER: postgres
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      SENTRY_DSN: ${NODE_SENTRY_DSN:-}
+      SENTRY_SERVICE: maj-server
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
+      SENTRY_PROFILES_SAMPLE_RATE: ${SENTRY_PROFILES_SAMPLE_RATE:-0.1}
     volumes:
       - ./repos/node-api:/app
       # 独立的 node_modules 卷：与 node-api 并发 npm install 时互不干扰
@@ -361,6 +379,12 @@ services:
       GATEWAY_ADMIN_TOKEN: ${GATEWAY_ADMIN_TOKEN:-}
       STATS_FILE: /data/stats.json
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # 网关异常上报；复用 node-api 的 Node 项目 DSN
+      SENTRY_DSN: ${NODE_SENTRY_DSN:-}
+      SENTRY_SERVICE: moelink-gateway
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.1}
       # HealthMonitor -> NotificationManager（QQ / Telegram / Discord）
       # 容器内访问宿主机 NapCat 时可用 http://host.docker.internal:3000
       QQ_NOTIFIER_ENABLED: ${QQ_NOTIFIER_ENABLED:-}
