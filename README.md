@@ -100,6 +100,12 @@ Point `api.moelink.site` at the gateway (host port `8000`), not directly at node
 
 The database is not exposed to the LAN by default. Container-to-container connections use port 5432 regardless of the host port mapping.
 
+The `majstatus` database is created by `config/init.sql`. Its statistics tables (`maj_selfbattle`, `yaku_list`, `max_win`) and the four seeded rows are created by `config/majstatus.sql`. PostgreSQL init scripts only run on a fresh data directory; on an existing deployment apply it once:
+
+```bash
+docker compose exec -T postgres psql -U postgres -d majstatus < config/majstatus.sql
+```
+
 ### Error monitoring (Sentry)
 
 Every long-running service can report to Sentry. Empty DSNs disable reporting.

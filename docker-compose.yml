@@ -415,6 +415,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./config/majstatus.sql:/docker-entrypoint-initdb.d/02-majstatus.sql:ro
     ports:
       # 宿主机端口默认 5432；NAS 上被占用时在 .env 中设置 POSTGRES_HOST_PORT=5433；
       # 仅绑定本机回环：容器间通信用服务名 postgres:5432 不受影响，
